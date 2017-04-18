@@ -1,0 +1,5 @@
+This repository contains a simple tool that does phonetic translations.
+Initially for Cyrillic, it just takes the english sounding character on
+input and translates it to the appropriate Russian sounding character on
+output.
+

@@ -1,0 +1,15 @@
+{
+    name "numerals-arabic"
+
+    map "0" "٠"
+    map "1" "١"
+    map "2" "٢"
+    map "3" "٣"
+    map "4" "٤"
+    map "5" "٥"
+    map "6" "٦"
+    map "7" "٧"
+    map "8" "٨"
+    map "9" "٩"
+}
+

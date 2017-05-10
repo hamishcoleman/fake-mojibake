@@ -1,0 +1,140 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use Data::Dumper;
+$Data::Dumper::Indent = 1;
+$Data::Dumper::Sortkeys = 1;
+$Data::Dumper::Quotekeys = 0;
+
+use IO::File;
+
+my $db;
+
+sub conv_load {
+    my $table = shift;
+
+    my $fh = IO::File->new($table) || die "open table $table $!";
+
+    my $partial;
+    while (<$fh>) {
+        chomp;
+        s/^\s+//; # no whitespace at start
+        s/#.*//;  # remove comments (TODO - escaped hash chars)
+        s/\s+$//; # no whitespace at end
+
+        next if (!$_);  # skip empty lines
+
+        if (m/^\{/) {
+            if (defined($partial)) {
+                die("Nested open braces are invalid");
+            }
+            $partial = {};
+            next;
+        }
+        if (!defined($partial)) {
+            die("Definitions cannot be outside a brace block");
+        }
+
+        if (m/^\}/) {
+            if (!defined($partial->{name})) {
+                die("No name for definition block");
+            }
+            push @{$db->{order}}, $partial->{name};
+            $db->{conv}{$partial->{name}} = $partial;
+            $partial = undef;
+            next;
+        } 
+
+        if (m/^name\s*"(.+)"$/) {
+            $partial->{name} = $1;
+            next;
+        }
+
+        if (m/^map "(.+)"\s+"(.+)"$/) {
+            $partial->{map}{$1} = $2;
+            next;
+        }
+    }
+}
+
+# Convert a single char of input
+sub conv_char {
+    my $db = shift;
+    my $from = shift;
+
+    die if (!defined($from));
+    die if (length($from)>1);
+
+    for my $table (@{$db->{order}}) {
+        my $map = $db->{conv}{$table}{map}{$from};
+        if (defined($map)) {
+            return($map);
+        }
+    }
+
+    # no match
+    return undef;
+}
+
+sub process_stdin {
+    my $db = shift;
+
+    $| = 1;
+    my $buf;
+
+    my $state = 'none';
+    while (sysread(STDIN,$buf,1,0)) {
+        if ($state eq 'none') {
+            if ($buf eq "\e") {
+                # this is the start of an escape sequence
+                print($buf);
+                $state = 'esc';
+                next;
+            }
+
+            my $to = conv_char($db,$buf);
+            if (defined($to)) {
+                print($to);
+            } else {
+                print($buf);
+            }
+        }
+
+        if ($state eq 'esc') {
+            # FIXME - assume always at least one char after escape
+            print($buf);
+
+            if ($buf eq ']') {
+                # its a xterm title sequence
+                $state = 'title';
+                next;
+            }
+
+            # FIXME - assume sequence ends with first alpha char
+            if ($buf =~ m/[a-zA-Z]/) {
+                $state = 'none';
+            }
+        }
+
+        if ($state eq 'title') {
+            print($buf);
+            # title sequence ends with a bel char
+            if ($buf eq "\007") {
+                $state = 'none';
+            }
+        }
+    }
+}
+
+sub main() {
+    for my $table (@ARGV) {
+        conv_load($table);
+    }
+
+    # if debug
+    #   print(Dumper($db));
+
+    process_stdin($db);
+}
+main();

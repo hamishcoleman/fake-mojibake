@@ -1,0 +1,67 @@
+{ 
+    name "english-cyrillic-lc"
+
+    map "a" "а"
+    map "b" "б"
+    map "v" "в"
+    map "g" "г"
+    map "d" "д"
+    map "e" "е"
+    map "j" "ж"
+    map "z" "з"
+    map "i" "и"
+    map "y" "й"
+    map "k" "к"
+    map "l" "л"
+    map "m" "м"
+    map "n" "н"
+    map "o" "о"
+    map "p" "п"
+    map "r" "р"
+    map "s" "с"
+    map "t" "т"
+    map "u" "у"
+    map "f" "ф"
+    map "h" "х"
+    map "c" "ц"
+    map "ch" "ч"
+    map "sh" "ш"
+    map "sht" "щ"
+    map "w" "ъ"
+    map "x" "ь"
+    #yu
+    #ya
+    #wy
+    #ee
+    #yo
+}
+
+{    
+    name "english-cyrillic-uc"
+
+    map "A" "А"
+    map "B" "Б"
+    map "V" "В"
+    map "G" "Г"
+    map "D" "Д"
+    map "E" "Е"
+    map "J" "Ж"
+    map "Z" "З"
+    map "I" "И"
+    map "Y" "Й"
+    map "K" "К"
+    map "L" "Л"
+    map "M" "М"
+    map "N" "Н"
+    map "O" "О"
+    map "P" "П"
+    map "R" "Р"
+    map "S" "С"
+    map "T" "Т"
+    map "U" "У"
+    map "F" "Ф"
+    map "H" "Х"
+    map "C" "Ц"
+    #W
+    #map "X" "ь"
+}

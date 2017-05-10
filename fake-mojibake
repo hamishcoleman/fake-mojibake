@@ -8,6 +8,7 @@ $Data::Dumper::Sortkeys = 1;
 $Data::Dumper::Quotekeys = 0;
 
 use IO::File;
+use IO::Poll qw(POLLIN);
 
 my $db;
 
@@ -77,14 +78,55 @@ sub conv_char {
     return undef;
 }
 
-sub process_stdin {
-    my $db = shift;
+# returns either: the bytes waiting, empty string on timeout or undef on error
+sub maybe_slirp {
+    my $fh = shift;
+    my $timeout = shift;
 
-    $| = 1;
+    my $poll = IO::Poll->new();
+    $poll->mask($fh => POLLIN);
+
+    my $poll_result = $poll->poll($timeout);
+    if ($poll_result<0) {
+        # an error
+        return undef;
+    }
+
+    if ($poll_result==0) {
+        # no events waiting - must be a timeout
+        return '';
+    }
+
     my $buf;
+    my $count = $fh->sysread($buf,1);
+    if ($count == 0) {
+        # some error, punt
+        return undef;
+    }
+    return $buf;
+}
+
+sub process_handle {
+    my $db = shift;
+    my $fh = shift;
+
+    # make output unbuffered
+    $| = 1;
 
     my $state = 'none';
-    while (sysread(STDIN,$buf,1,0)) {
+    while (1) {
+        my $buf = maybe_slirp($fh,0.1);
+
+        if (!defined($buf)) {
+            # errors or end of file
+            return;
+        }
+
+        if (length($buf)==0) {
+            # timeout
+            next;
+        }
+
         if ($state eq 'none') {
             if ($buf eq "\e") {
                 # this is the start of an escape sequence
@@ -132,9 +174,11 @@ sub main() {
         conv_load($table);
     }
 
+
     # if debug
     #   print(Dumper($db));
 
-    process_stdin($db);
+    my $stdin = \*STDIN;
+    process_handle($db,$stdin);
 }
 main();

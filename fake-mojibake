@@ -86,7 +86,8 @@ sub conv_word {
     my $word = shift;
 
     # first, try the entire word
-    my $result = conv_one($db,$word);
+    my $lc_word = lc $word;
+    my $result = conv_one($db,$lc_word);
     if (defined($result)) {
         my $len_word   = length($word);
         my $len_result = length($result);

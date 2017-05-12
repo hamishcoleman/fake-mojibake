@@ -53,7 +53,10 @@ sub conv_load {
         }
 
         if (m/^map "(.+)"\s+"(.+)"$/) {
-            $partial->{map}{$1} = $2;
+            my $from = $1;
+            my $to = $2;
+            utf8::decode($to);
+            $partial->{map}{$from} = $to;
             next;
         }
     }
@@ -85,7 +88,6 @@ sub conv_word {
     # first, try the entire word
     my $result = conv_one($db,$word);
     if (defined($result)) {
-        # FIXME - this should count codepoints, not bytes
         my $len_word   = length($word);
         my $len_result = length($result);
 
@@ -230,6 +232,9 @@ sub process_handle {
 
     # make output unbuffered
     $| = 1;
+
+    # allow utf printing
+    binmode(STDOUT,":utf8");
 
     $db->{state} = 'none';
     while (1) {

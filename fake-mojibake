@@ -59,13 +59,12 @@ sub conv_load {
     }
 }
 
-# Convert a single char of input
-sub conv_char {
+# Convert a pattern using the mapping tables
+sub conv_one {
     my $db = shift;
     my $from = shift;
 
     die if (!defined($from));
-    die if (length($from)>1);
 
     for my $table (@{$db->{order}}) {
         my $map = $db->{conv}{$table}{map}{$from};
@@ -83,9 +82,28 @@ sub conv_word {
     my $db = shift;
     my $word = shift;
 
-    my $result;
+    # first, try the entire word
+    my $result = conv_one($db,$word);
+    if (defined($result)) {
+        # FIXME - this should count codepoints, not bytes
+        my $len_word   = length($word);
+        my $len_result = length($result);
+
+        # to keep the screen layout usable, it must match the size
+        if ($len_result < $len_word) {
+            $result .= " "x($len_word-$len_result);
+            return $result;
+        } elsif ($len_result == $len_word) {
+            return $result;
+        }
+
+        # the result is larger - fall through to char-by-char
+        $result = undef;
+    }
+
+    # otherwise, iterate through the chars, one by one
     for my $ch (split(//,$word)) {
-        my $to = conv_char($db,$ch);
+        my $to = conv_one($db,$ch);
         if (defined($to)) {
             $result .= $to;
         } else {

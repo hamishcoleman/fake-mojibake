@@ -78,6 +78,98 @@ sub conv_char {
     return undef;
 }
 
+# for now, simply process words as if they were single chars
+sub conv_word {
+    my $db = shift;
+    my $word = shift;
+
+    my $result;
+    for my $ch (split(//,$word)) {
+        my $to = conv_char($db,$ch);
+        if (defined($to)) {
+            $result .= $to;
+        } else {
+            $result .= $ch;
+        }
+    }
+    return $result;
+}
+
+sub process_buf {
+    my $db = shift;
+    my $buf = shift;
+    my $state = $db->{state};
+
+    my $result;
+    my $word;
+    for my $ch (split(//,$buf)) {
+        if ($state eq 'word') {
+            if ($ch =~ m/\w/) {
+                $word .= $ch;
+                next;
+            }
+
+            # this char is not a word char, thus ending the word
+            $result .= conv_word($db,$word);
+            $word = undef;
+
+            # fall through and process this char
+            $state = 'none';
+        }
+
+        if ($state eq 'none') {
+            if ($ch eq "\e") {
+                # this is the start of an escape sequence
+                $result .= $ch;
+                $state = 'esc';
+                next;
+            }
+
+            if ($ch =~ m/\w/) {
+                $state = 'word';
+                $word .= $ch;
+                next;
+            }
+
+            # neither escape, nor word char, append an fall through
+            $result .= $ch;
+            next;
+        }
+
+        if ($state eq 'esc') {
+            # FIXME - assume always at least one char after escape
+            $result .= $ch;
+
+            if ($ch eq ']') {
+                # its a xterm title sequence
+                $state = 'title';
+                next;
+            }
+
+            # FIXME - assume sequence ends with first alpha char
+            if ($ch =~ m/[a-zA-Z]/) {
+                $state = 'none';
+            }
+        }
+
+        if ($state eq 'title') {
+            $result .= $ch;
+            # title sequence ends with a bel char
+            if ($ch eq "\007") {
+                $state = 'none';
+            }
+        }
+    }
+
+    if ($state eq 'word') {
+        # flush partial words
+        $result .= conv_word($db,$word);
+        $state = 'none';
+    }
+    $db->{state} = $state;
+    return $result;
+}
+
 # returns either: the bytes waiting, empty string on timeout or undef on error
 sub maybe_slirp {
     my $fh = shift;
@@ -97,13 +189,17 @@ sub maybe_slirp {
         return '';
     }
 
-    my $buf;
-    my $count = $fh->sysread($buf,1);
-    if ($count == 0) {
-        # some error, punt
-        return undef;
+    my $result;
+    while ($poll->poll(0.01)) {
+        my $buf;
+        my $count = $fh->sysread($buf,4096);
+        if ($count == 0) {
+            # some error, punt
+            return undef;
+        }
+        $result .= $buf;
     }
-    return $buf;
+    return $result;
 }
 
 sub process_handle {
@@ -113,7 +209,7 @@ sub process_handle {
     # make output unbuffered
     $| = 1;
 
-    my $state = 'none';
+    $db->{state} = 'none';
     while (1) {
         my $buf = maybe_slirp($fh,0.1);
 
@@ -127,45 +223,7 @@ sub process_handle {
             next;
         }
 
-        if ($state eq 'none') {
-            if ($buf eq "\e") {
-                # this is the start of an escape sequence
-                print($buf);
-                $state = 'esc';
-                next;
-            }
-
-            my $to = conv_char($db,$buf);
-            if (defined($to)) {
-                print($to);
-            } else {
-                print($buf);
-            }
-        }
-
-        if ($state eq 'esc') {
-            # FIXME - assume always at least one char after escape
-            print($buf);
-
-            if ($buf eq ']') {
-                # its a xterm title sequence
-                $state = 'title';
-                next;
-            }
-
-            # FIXME - assume sequence ends with first alpha char
-            if ($buf =~ m/[a-zA-Z]/) {
-                $state = 'none';
-            }
-        }
-
-        if ($state eq 'title') {
-            print($buf);
-            # title sequence ends with a bel char
-            if ($buf eq "\007") {
-                $state = 'none';
-            }
-        }
+        print(process_buf($db,$buf));
     }
 }
 

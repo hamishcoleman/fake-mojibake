@@ -212,6 +212,10 @@ sub maybe_slirp {
         my $buf;
         my $count = $fh->sysread($buf,4096);
         if ($count == 0) {
+            # nothing to read
+            last;
+        }
+        if ($count <0 ) {
             # some error, punt
             return undef;
         }

@@ -259,7 +259,7 @@ sub main() {
     for my $table (@ARGV) {
         conv_load($table);
     }
-
+    # TODO - reload the conversion tables on sighup
 
     # if debug
     #   print(Dumper($db));
